@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>欢迎页面</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #f5f5f5;
+        }
+        .welcome-container {
+            background-color: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            min-width: 400px;
+        }
+        h1 {
+            color: #4CAF50;
+            margin-bottom: 20px;
+        }
+        .card-info {
+            text-align: left;
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 4px;
+            margin: 20px 0;
+        }
+        .info-item {
+            margin: 10px 0;
+            color: #555;
+        }
+        .info-label {
+            font-weight: bold;
+            display: inline-block;
+            width: 100px;
+        }
+        .logout-btn {
+            padding: 10px 20px;
+            background-color: #f44336;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-weight: bold;
+            margin-top: 20px;
+        }
+        .logout-btn:hover {
+            background-color: #d32f2f;
+        }
+        .session-timer {
+            color: #666;
+            font-size: 12px;
+            margin-top: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="welcome-container">
+        <h1>登录成功</h1>
+        <div class="card-info">
+            <div class="info-item">
+                <span class="info-label">卡号：</span>
+                <span id="cardNumber">-</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">绑定状态：</span>
+                <span id="bindStatus">-</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">绑定时间：</span>
+                <span id="bindTime">-</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">有效期至：</span>
+                <span id="expiryDate">-</span>
+            </div>
+            <div class="info-item">
+                <span class="info-label">设备MAC：</span>
+                <span id="macAddress">-</span>
+            </div>
+        </div>
+        <button class="logout-btn" onclick="logout()">退出登录</button>
+        <div id="sessionTimer" class="session-timer"></div>
+    </div>
+
+    <script>
+        // 检查登录状态
+        function checkLoginStatus() {
+            const cardNumber = sessionStorage.getItem('cardNumber');
+            const loginTime = sessionStorage.getItem('loginTime');
+            
+            if (!cardNumber || !loginTime) {
+                window.location.href = 'index.html';
+                return false;
+            }
+
+            // 检查session是否过期（30分钟）
+            if (Date.now() - loginTime > 30 * 60 * 1000) {
+                alert('登录已过期，请重新登录');
+                logout();
+                return false;
+            }
+
+            return true;
+        }
+
+        // 更新session计时器
+        function updateSessionTimer() {
+            const loginTime = sessionStorage.getItem('loginTime');
+            if (loginTime) {
+                const timeLeft = 30 * 60 - Math.floor((Date.now() - loginTime) / 1000);
+                if (timeLeft > 0) {
+                    const minutes = Math.floor(timeLeft / 60);
+                    const seconds = timeLeft % 60;
+                    document.getElementById('sessionTimer').textContent = 
+                        `会话将在 ${minutes}分${seconds}秒 后过期`;
+                } else {
+                    logout();
+                }
+            }
+        }
+
+        // 加载卡号信息
+        async function loadCardInfo() {
+            try {
+                const cardNumber = sessionStorage.getItem('cardNumber');
+                if (!cardNumber) {
+                    throw new Error('未找到卡号信息');
+                }
+
+                const response = await fetch(`/api/query/${encodeURIComponent(cardNumber)}`, {
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                });
+
+                if (!response.ok) {
+                    throw new Error('网络请求失败');
+                }
+
+                const data = await response.json();
+                if (!data.success) {
+                    throw new Error(data.message || '获取卡号信息失败');
+                }
+
+                const cardInfo = data.data;
+                document.getElementById('cardNumber').textContent = cardInfo.cardNumber;
+                document.getElementById('bindStatus').textContent = cardInfo.bound ? '已绑定' : '未绑定';
+                document.getElementById('bindTime').textContent = cardInfo.bindTime ? 
+                    new Date(cardInfo.bindTime).toLocaleString() : '-';
+                document.getElementById('expiryDate').textContent = 
+                    new Date(cardInfo.expiryDate).toLocaleString();
+                document.getElementById('macAddress').textContent = cardInfo.macAddress || '-';
+            } catch (error) {
+                alert(error.message);
+                logout();
+            }
+        }
+
+        // 退出登录
+        function logout() {
+            sessionStorage.clear();
+            window.location.href = 'index.html';
+        }
+
+        // 页面加载完成后的处理
+        window.onload = function() {
+            if (!checkLoginStatus()) {
+                return;
+            }
+            loadCardInfo();
+            // 更新session计时器
+            updateSessionTimer();
+            setInterval(updateSessionTimer, 1000);
+        };
+
+        // 添加页面可见性变化监听
+        document.addEventListener('visibilitychange', function() {
+            if (!document.hidden) {
+                if (!checkLoginStatus()) {
+                    return;
+                }
+                loadCardInfo();
+            }
+        });
+    </script>
+</body>
+</html> 
