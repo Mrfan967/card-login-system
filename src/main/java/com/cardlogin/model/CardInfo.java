@@ -19,4 +19,6 @@ public class CardInfo implements Serializable {
     private String boundDeviceFingerprint;
     private LocalDateTime lastLoginTime;
     private int loginAttempts;
+    private String username; // 用户名
+    private String password; // 密码（建议加密存储）
 } 

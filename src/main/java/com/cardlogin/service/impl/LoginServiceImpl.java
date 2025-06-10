@@ -5,6 +5,7 @@ import com.cardlogin.model.CardInfo;
 import com.cardlogin.model.LoginRequest;
 import com.cardlogin.service.LoginService;
 import com.cardlogin.util.LoginAttemptService;
+import com.cardlogin.util.JwtUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
@@ -29,6 +30,8 @@ public class LoginServiceImpl implements LoginService {
     @Override
     public ApiResponse login(LoginRequest loginRequest, String deviceFingerprint) {
         String cardNumber = loginRequest.getCardNumber();
+        String username = loginRequest.getUsername();
+        String password = loginRequest.getPassword();
         
         // 检查账号是否被锁定
         if (loginAttemptService.isLocked(cardNumber)) {
@@ -56,6 +59,14 @@ public class LoginServiceImpl implements LoginService {
             return new ApiResponse(false, "该卡已绑定其他设备，请先解绑");
         }
 
+        // 校验用户名和密码
+        if (username == null || password == null ||
+            !username.equals(cardInfo.getUsername()) ||
+            !password.equals(cardInfo.getPassword())) {
+            loginAttemptService.loginFailed(cardNumber);
+            return new ApiResponse(false, "用户名或密码错误");
+        }
+
         // 更新卡片信息
         cardInfo.setBound(true);
         cardInfo.setBoundDeviceFingerprint(deviceFingerprint);
@@ -68,7 +79,10 @@ public class LoginServiceImpl implements LoginService {
         // 登录成功，重置失败计数
         loginAttemptService.loginSucceeded(cardNumber);
 
-        return new ApiResponse(true, "登录成功");
+        // 生成JWT token
+        String token = JwtUtil.generateToken(username, cardNumber);
+
+        return new ApiResponse(true, "登录成功", token);
     }
 
     @Override

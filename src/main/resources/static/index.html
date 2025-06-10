@@ -78,6 +78,12 @@
     <div class="login-container">
         <h2 style="text-align: center; margin-bottom: 20px;">卡号登录系统</h2>
         <div class="input-group">
+            <input type="text" id="username" placeholder="请输入用户名" maxlength="32" />
+        </div>
+        <div class="input-group">
+            <input type="password" id="password" placeholder="请输入密码" maxlength="32" />
+        </div>
+        <div class="input-group">
             <input type="text" id="cardNumber" placeholder="请输入卡号（示例：1808451185619763200）" maxlength="19" />
         </div>
         <div class="button-group">
@@ -265,9 +271,13 @@
             }
 
             try {
+                const username = document.getElementById('username').value.trim();
+                const password = document.getElementById('password').value.trim();
                 const cardNumber = document.getElementById('cardNumber').value.trim();
                 
                 // 表单验证
+                if (!username) throw new Error('请输入用户名');
+                if (!password) throw new Error('请输入密码');
                 LoginValidator.validateCardNumber(cardNumber);
                 await LoginValidator.validateLoginAttempt();
 
@@ -282,6 +292,8 @@
 
                 // 准备登录数据
                 const loginData = {
+                    username: username,
+                    password: password,
                     cardNumber: cardNumber,
                     deviceFingerprint: deviceFingerprint,
                     timestamp: Date.now()
@@ -304,7 +316,7 @@
 
                 const data = await response.json();
                 if (data.success) {
-                    handleLoginSuccess(cardNumber);
+                    handleLoginSuccess(cardNumber, data.data);
                 } else {
                     throw new Error(data.message || '登录失败');
                 }
@@ -317,15 +329,16 @@
         }
 
         // 登录成功处理
-        function handleLoginSuccess(cardNumber) {
+        function handleLoginSuccess(cardNumber, token) {
             showMessage('登录成功！正在跳转...');
             LoginStateManager.resetFailCount();
             
-            // 保存登录状态
+            // 保存登录状态和token
             const loginState = {
                 cardNumber: cardNumber,
                 loginTime: Date.now(),
-                expiryTime: Date.now() + CONSTANTS.SESSION_TIMEOUT
+                expiryTime: Date.now() + CONSTANTS.SESSION_TIMEOUT,
+                token: token
             };
             
             sessionStorage.setItem('loginState', JSON.stringify(loginState));
@@ -415,11 +428,15 @@
                 LoginStateManager.isSubmitting = true;
                 setButtonsState(true);
 
+                const loginState = JSON.parse(sessionStorage.getItem('loginState') || '{}');
+                const token = loginState.token || '';
+
                 const response = await fetch('/api/unbind', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
-                        'X-Requested-With': 'XMLHttpRequest'
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'Authorization': 'Bearer ' + token
                     },
                     body: JSON.stringify({ 
                         cardNumber: cardNumber,
@@ -465,9 +482,13 @@
                 LoginStateManager.isSubmitting = true;
                 setButtonsState(true);
 
+                const loginState = JSON.parse(sessionStorage.getItem('loginState') || '{}');
+                const token = loginState.token || '';
+
                 const response = await fetch(`/api/query/${encodeURIComponent(cardNumber)}`, {
                     headers: {
-                        'X-Requested-With': 'XMLHttpRequest'
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'Authorization': 'Bearer ' + token
                     }
                 });
 
