@@ -33,7 +33,7 @@ public class LoginController {
         if (!rateLimiter.tryAcquire(clientIp)) {
             return ResponseEntity
                     .status(HttpStatus.TOO_MANY_REQUESTS)
-                    .body(new ApiResponse(false, "请求过于频繁，请稍后再试"));
+                    .body(ApiResponse.error("请求过于频繁，请稍后再试"));
         }
 
         try {
@@ -41,7 +41,7 @@ public class LoginController {
         } catch (Exception e) {
             return ResponseEntity
                     .status(HttpStatus.BAD_REQUEST)
-                    .body(new ApiResponse(false, e.getMessage()));
+                    .body(ApiResponse.error(e.getMessage()));
         }
     }
 
@@ -52,7 +52,7 @@ public class LoginController {
         } catch (Exception e) {
             return ResponseEntity
                     .status(HttpStatus.BAD_REQUEST)
-                    .body(new ApiResponse(false, e.getMessage()));
+                    .body(ApiResponse.error(e.getMessage()));
         }
     }
 
@@ -63,7 +63,7 @@ public class LoginController {
         } catch (Exception e) {
             return ResponseEntity
                     .status(HttpStatus.BAD_REQUEST)
-                    .body(new ApiResponse(false, e.getMessage()));
+                    .body(ApiResponse.error(e.getMessage()));
         }
     }
 } 

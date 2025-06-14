@@ -1,43 +1,25 @@
 package com.cardlogin.model;
 
-public class ApiResponse {
-    private boolean success;
+import lombok.Data;
+
+@Data
+public class ApiResponse<T> {
+    private int code;
     private String message;
-    private Object data;
+    private T data;
 
-    public ApiResponse(boolean success, String message) {
-        this.success = success;
-        this.message = message;
+    public static <T> ApiResponse<T> success(T data) {
+        ApiResponse<T> resp = new ApiResponse<>();
+        resp.setCode(0);
+        resp.setMessage("success");
+        resp.setData(data);
+        return resp;
     }
 
-    public ApiResponse(boolean success, String message, Object data) {
-        this.success = success;
-        this.message = message;
-        this.data = data;
-    }
-
-    // Getters and Setters
-    public boolean isSuccess() {
-        return success;
-    }
-
-    public void setSuccess(boolean success) {
-        this.success = success;
-    }
-
-    public String getMessage() {
-        return message;
-    }
-
-    public void setMessage(String message) {
-        this.message = message;
-    }
-
-    public Object getData() {
-        return data;
-    }
-
-    public void setData(Object data) {
-        this.data = data;
+    public static <T> ApiResponse<T> error(String message) {
+        ApiResponse<T> resp = new ApiResponse<>();
+        resp.setCode(1);
+        resp.setMessage(message);
+        return resp;
     }
 } 

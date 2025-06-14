@@ -36,27 +36,26 @@ public class LoginServiceImpl implements LoginService {
         // 检查账号是否被锁定
         if (loginAttemptService.isLocked(cardNumber)) {
             long remainingLockTime = loginAttemptService.getRemainingLockTime(cardNumber);
-            return new ApiResponse(false, 
-                String.format("账号已被锁定，请等待%d分钟后重试", remainingLockTime));
+            return ApiResponse.error(String.format("账号已被锁定，请等待%d分钟后重试", remainingLockTime));
         }
 
         // 验证卡号是否存在并获取卡片信息
         CardInfo cardInfo = getCardInfo(cardNumber);
         if (cardInfo == null || !isValidCard(cardNumber)) {
             loginAttemptService.loginFailed(cardNumber);
-            return new ApiResponse(false, "卡号不存在或已失效");
+            return ApiResponse.error("卡号不存在或已失效");
         }
 
         // 检查卡片是否过期
         if (cardInfo.getExpiryDate() != null && cardInfo.getExpiryDate().isBefore(LocalDateTime.now())) {
             loginAttemptService.loginFailed(cardNumber);
-            return new ApiResponse(false, "卡片已过期");
+            return ApiResponse.error("卡片已过期");
         }
 
         // 检查设备绑定
         if (cardInfo.isBound() && !deviceFingerprint.equals(cardInfo.getBoundDeviceFingerprint())) {
             loginAttemptService.loginFailed(cardNumber);
-            return new ApiResponse(false, "该卡已绑定其他设备，请先解绑");
+            return ApiResponse.error("该卡已绑定其他设备，请先解绑");
         }
 
         // 校验用户名和密码
@@ -64,7 +63,7 @@ public class LoginServiceImpl implements LoginService {
             !username.equals(cardInfo.getUsername()) ||
             !password.equals(cardInfo.getPassword())) {
             loginAttemptService.loginFailed(cardNumber);
-            return new ApiResponse(false, "用户名或密码错误");
+            return ApiResponse.error("用户名或密码错误");
         }
 
         // 更新卡片信息
@@ -82,7 +81,7 @@ public class LoginServiceImpl implements LoginService {
         // 生成JWT token
         String token = JwtUtil.generateToken(username, cardNumber);
 
-        return new ApiResponse(true, "登录成功", token);
+        return ApiResponse.success(token);
     }
 
     @Override
@@ -90,12 +89,12 @@ public class LoginServiceImpl implements LoginService {
         // 获取卡片信息
         CardInfo cardInfo = getCardInfo(cardNumber);
         if (cardInfo == null || !isValidCard(cardNumber)) {
-            return new ApiResponse(false, "卡号不存在或已失效");
+            return ApiResponse.error("卡号不存在或已失效");
         }
 
         // 检查是否已绑定
         if (!cardInfo.isBound()) {
-            return new ApiResponse(false, "该卡未绑定任何设备");
+            return ApiResponse.error("该卡未绑定任何设备");
         }
 
         // 解除绑定
@@ -103,7 +102,7 @@ public class LoginServiceImpl implements LoginService {
         cardInfo.setBoundDeviceFingerprint(null);
         saveCardInfo(cardInfo);
 
-        return new ApiResponse(true, "解绑成功");
+        return ApiResponse.success("解绑成功");
     }
 
     @Override
@@ -111,15 +110,15 @@ public class LoginServiceImpl implements LoginService {
         // 获取卡片信息
         CardInfo cardInfo = getCardInfo(cardNumber);
         if (cardInfo == null || !isValidCard(cardNumber)) {
-            return new ApiResponse(false, "卡号不存在或已失效");
+            return ApiResponse.error("卡号不存在或已失效");
         }
 
-        return new ApiResponse(true, "查询成功", cardInfo);
+        return ApiResponse.success(cardInfo);
     }
 
     // 验证卡号是否有效
     private boolean isValidCard(String cardNumber) {
-        return cardNumber != null && cardNumber.matches("^\\d{18,19}$");
+        return cardNumber != null && cardNumber.matches("^\\d{6,12}$");
     }
 
     // 获取卡片信息

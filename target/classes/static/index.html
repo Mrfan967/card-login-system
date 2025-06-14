@@ -6,512 +6,190 @@
     <style>
         body {
             font-family: Arial, sans-serif;
+            background: #f5f5f5;
             display: flex;
             justify-content: center;
             align-items: center;
             height: 100vh;
-            margin: 0;
-            background-color: #f5f5f5;
         }
-        .login-container {
-            background-color: white;
-            padding: 30px;
+        .container {
+            background: #fff;
+            padding: 32px 32px 24px 32px;
             border-radius: 8px;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-            width: 300px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+            width: 340px;
+        }
+        h2 {
+            text-align: center;
+            margin-bottom: 24px;
         }
         .input-group {
-            margin-bottom: 20px;
+            margin-bottom: 18px;
         }
-        input[type="text"] {
+        .input-group input {
             width: 100%;
             padding: 10px;
+            font-size: 15px;
             border: 1px solid #ddd;
             border-radius: 4px;
             box-sizing: border-box;
-            font-size: 16px;
         }
         .button-group {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
+            display: flex;
             gap: 10px;
+            margin-bottom: 10px;
         }
-        button {
-            padding: 10px;
+        .button-group button {
+            flex: 1;
+            padding: 10px 0;
             border: none;
             border-radius: 4px;
-            cursor: pointer;
+            color: #fff;
             font-weight: bold;
-            color: white;
-            font-size: 14px;
+            font-size: 15px;
+            cursor: pointer;
         }
-        #loginBtn {
-            background-color: #4CAF50;
-        }
-        #unbindBtn {
-            background-color: #f44336;
-        }
-        #queryBtn {
-            background-color: #2196F3;
-        }
+        #loginBtn { background: #4CAF50; }
+        #unbindBtn { background: #f44336; }
+        #queryBtn { background: #2196F3; }
+        #registerBtn { background: #ff9800; }
         .message {
-            margin-top: 15px;
+            margin-top: 10px;
             padding: 10px;
             border-radius: 4px;
             display: none;
         }
-        .error {
-            background-color: #ffebee;
-            color: #c62828;
-        }
-        .success {
-            background-color: #e8f5e9;
-            color: #2e7d32;
-        }
-        .button-disabled {
-            opacity: 0.6;
-            cursor: not-allowed !important;
-        }
+        .error { background: #ffebee; color: #c62828; }
+        .success { background: #e8f5e9; color: #2e7d32; }
     </style>
 </head>
 <body>
-    <div class="login-container">
-        <h2 style="text-align: center; margin-bottom: 20px;">卡号登录系统</h2>
-        <div class="input-group">
-            <input type="text" id="username" placeholder="请输入用户名" maxlength="32" />
-        </div>
-        <div class="input-group">
-            <input type="password" id="password" placeholder="请输入密码" maxlength="32" />
-        </div>
-        <div class="input-group">
-            <input type="text" id="cardNumber" placeholder="请输入卡号（示例：1808451185619763200）" maxlength="19" />
-        </div>
-        <div class="button-group">
-            <button id="loginBtn" onclick="login()">登录</button>
-            <button id="unbindBtn" onclick="unbind()">解绑</button>
-            <button id="queryBtn" onclick="query()">查询</button>
-        </div>
-        <div id="message" class="message"></div>
+<div class="container">
+    <h2>卡号登录系统</h2>
+    <div class="input-group">
+        <input type="text" id="username" placeholder="用户名" maxlength="32">
     </div>
+    <div class="input-group">
+        <input type="password" id="password" placeholder="密码" maxlength="32">
+    </div>
+    <div class="input-group">
+        <input type="text" id="cardNumber" placeholder="卡号（6-12位数字）" maxlength="12">
+    </div>
+    <div class="button-group">
+        <button id="loginBtn" onclick="login()">登录</button>
+        <button id="unbindBtn" onclick="unbind()">解绑</button>
+        <button id="queryBtn" onclick="query()">查询</button>
+    </div>
+    <button id="registerBtn" onclick="register()" style="width:100%;margin-bottom:10px;">注册</button>
+    <div id="message" class="message"></div>
+</div>
+<script>
+    // 设备指纹生成
+    function getDeviceFingerprint() {
+        return btoa(navigator.userAgent + window.screen.width + window.screen.height + new Date().getTimezoneOffset());
+    }
 
-    <script>
-        // 全局变量定义
-        const CONSTANTS = {
-            MAX_FAIL_COUNT: 5,
-            LOCK_TIME: 5 * 60 * 1000,
-            SESSION_TIMEOUT: 30 * 60 * 1000,
-            MIN_CARD_LENGTH: 18,
-            MAX_CARD_LENGTH: 19
+    function showMessage(msg, type) {
+        const el = document.getElementById('message');
+        el.innerText = msg;
+        el.className = 'message ' + (type === 'success' ? 'success' : 'error');
+        el.style.display = 'block';
+    }
+
+    function clearMessage() {
+        const el = document.getElementById('message');
+        el.innerText = '';
+        el.style.display = 'none';
+    }
+
+    function getInput() {
+        return {
+            username: document.getElementById('username').value.trim(),
+            password: document.getElementById('password').value.trim(),
+            cardNumber: document.getElementById('cardNumber').value.trim(),
+            deviceFingerprint: getDeviceFingerprint()
         };
+    }
 
-        // 登录状态管理
-        const LoginStateManager = {
-            failCount: 0,
-            lastFailTime: 0,
-            isSubmitting: false,
-
-            getFailCount() {
-                const storedCount = localStorage.getItem('loginFailCount');
-                const storedTime = localStorage.getItem('loginFailTime');
-                if (storedCount && storedTime) {
-                    // 如果锁定时间已过，重置计数
-                    if (Date.now() - parseInt(storedTime) > CONSTANTS.LOCK_TIME) {
-                        this.resetFailCount();
-                        return 0;
-                    }
-                    return parseInt(storedCount);
-                }
-                return 0;
+    async function login() {
+        clearMessage();
+        const {username, password, cardNumber, deviceFingerprint} = getInput();
+        if (!/^[0-9]{6,12}$/.test(cardNumber)) {
+            showMessage('卡号必须是6-12位数字', 'error');
+            return;
+        }
+        const res = await fetch('/api/login', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Device-Fingerprint': deviceFingerprint
             },
-
-            incrementFailCount() {
-                const currentCount = this.getFailCount() + 1;
-                localStorage.setItem('loginFailCount', currentCount.toString());
-                localStorage.setItem('loginFailTime', Date.now().toString());
-                return currentCount;
-            },
-
-            resetFailCount() {
-                localStorage.removeItem('loginFailCount');
-                localStorage.removeItem('loginFailTime');
-            },
-
-            isLocked() {
-                const failCount = this.getFailCount();
-                const lastFailTime = parseInt(localStorage.getItem('loginFailTime') || '0');
-                
-                if (failCount >= CONSTANTS.MAX_FAIL_COUNT) {
-                    const now = Date.now();
-                    if (now - lastFailTime < CONSTANTS.LOCK_TIME) {
-                        return true;
-                    }
-                    this.resetFailCount();
-                }
-                return false;
-            },
-
-            getRemainingLockTime() {
-                const lastFailTime = parseInt(localStorage.getItem('loginFailTime') || '0');
-                const remaining = CONSTANTS.LOCK_TIME - (Date.now() - lastFailTime);
-                return Math.max(0, Math.ceil(remaining / 1000));
-            }
-        };
-
-        // 设备指纹生成
-        const DeviceFingerprint = {
-            async generate() {
-                try {
-                    const components = [];
-                    // 收集浏览器信息
-                    components.push(navigator.userAgent);
-                    components.push(screen.width + 'x' + screen.height);
-                    components.push(new Date().getTimezoneOffset());
-                    components.push(navigator.language);
-                    
-                    // 获取Canvas指纹
-                    const canvas = document.createElement('canvas');
-                    const ctx = canvas.getContext('2d');
-                    canvas.width = 200;
-                    canvas.height = 200;
-                    ctx.textBaseline = 'top';
-                    ctx.font = '14px Arial';
-                    ctx.fillStyle = '#f60';
-                    ctx.fillRect(125,1,62,20);
-                    ctx.fillStyle = '#069';
-                    ctx.fillText('DeviceFingerprint', 2, 15);
-                    components.push(canvas.toDataURL());
-
-                    // 获取已安装字体列表（如果可用）
-                    if (document.fonts && document.fonts.check) {
-                        const fontList = await this.getInstalledFonts();
-                        components.push(fontList.join(','));
-                    }
-
-                    // 组合并哈希
-                    const fingerprint = components.join('|||');
-                    return await this.hashString(fingerprint);
-                } catch (error) {
-                    console.error('生成设备指纹失败:', error);
-                    return null;
-                }
-            },
-
-            async getInstalledFonts() {
-                const fontList = [
-                    'Arial', 'Times New Roman', 'Courier New', 'Georgia', 'Verdana',
-                    'Microsoft YaHei', 'SimSun', 'SimHei', 'KaiTi', 'NSimSun'
-                ];
-                const installedFonts = [];
-                
-                for (const font of fontList) {
-                    if (await document.fonts.check(`12px "${font}"`)) {
-                        installedFonts.push(font);
-                    }
-                }
-                return installedFonts;
-            },
-
-            async hashString(str) {
-                const encoder = new TextEncoder();
-                const data = encoder.encode(str);
-                const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-                const hashArray = Array.from(new Uint8Array(hashBuffer));
-                return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
-            }
-        };
-
-        // 登录表单验证
-        const LoginValidator = {
-            validateCardNumber(cardNumber) {
-                if (!cardNumber) {
-                    throw new Error('请输入卡号');
-                }
-                if (!/^\d{18,19}$/.test(cardNumber)) {
-                    throw new Error(`卡号必须是${CONSTANTS.MIN_CARD_LENGTH}-${CONSTANTS.MAX_CARD_LENGTH}位数字`);
-                }
-                return true;
-            },
-
-            async validateLoginAttempt() {
-                if (LoginStateManager.isLocked()) {
-                    const remainingSeconds = LoginStateManager.getRemainingLockTime();
-                    const minutes = Math.floor(remainingSeconds / 60);
-                    const seconds = remainingSeconds % 60;
-                    throw new Error(`账号已被锁定，请等待 ${minutes}分${seconds}秒后重试`);
-                }
-                return true;
-            }
-        };
-
-        // 显示消息提示
-        function showMessage(message, isError = false) {
-            const messageDiv = document.getElementById('message');
-            messageDiv.textContent = message;
-            messageDiv.style.display = 'block';
-            messageDiv.className = 'message ' + (isError ? 'error' : 'success');
+            body: JSON.stringify({username, password, cardNumber})
+        });
+        const data = await res.json();
+        if (data.code === 0) {
+            showMessage('登录成功，Token: ' + data.data, 'success');
+            localStorage.setItem('token', data.data);
+        } else {
+            showMessage(data.message, 'error');
         }
+    }
 
-        // 设置按钮状态
-        function setButtonsState(disabled) {
-            const buttons = document.querySelectorAll('button');
-            buttons.forEach(button => {
-                button.disabled = disabled;
-                if (disabled) {
-                    button.classList.add('button-disabled');
-                } else {
-                    button.classList.remove('button-disabled');
-                }
-            });
+    async function register() {
+        clearMessage();
+        const {username, password, cardNumber, deviceFingerprint} = getInput();
+        if (!/^[0-9]{6,12}$/.test(cardNumber)) {
+            showMessage('卡号必须是6-12位数字', 'error');
+            return;
         }
-
-        // 登录处理函数
-        async function login() {
-            if (LoginStateManager.isSubmitting) {
-                return;
-            }
-
-            try {
-                const username = document.getElementById('username').value.trim();
-                const password = document.getElementById('password').value.trim();
-                const cardNumber = document.getElementById('cardNumber').value.trim();
-                
-                // 表单验证
-                if (!username) throw new Error('请输入用户名');
-                if (!password) throw new Error('请输入密码');
-                LoginValidator.validateCardNumber(cardNumber);
-                await LoginValidator.validateLoginAttempt();
-
-                LoginStateManager.isSubmitting = true;
-                setButtonsState(true);
-
-                // 获取设备指纹
-                const deviceFingerprint = await DeviceFingerprint.generate();
-                if (!deviceFingerprint) {
-                    throw new Error('无法获取设备信息');
-                }
-
-                // 准备登录数据
-                const loginData = {
-                    username: username,
-                    password: password,
-                    cardNumber: cardNumber,
-                    deviceFingerprint: deviceFingerprint,
-                    timestamp: Date.now()
-                };
-
-                // 发送登录请求
-                const response = await fetch('/api/login', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-Requested-With': 'XMLHttpRequest',
-                        'X-Device-Fingerprint': deviceFingerprint
-                    },
-                    body: JSON.stringify(loginData)
-                });
-
-                if (!response.ok) {
-                    throw new Error(response.status === 429 ? '请求过于频繁，请稍后再试' : '网络请求失败');
-                }
-
-                const data = await response.json();
-                if (data.success) {
-                    handleLoginSuccess(cardNumber, data.data);
-                } else {
-                    throw new Error(data.message || '登录失败');
-                }
-            } catch (error) {
-                handleLoginError(error);
-            } finally {
-                LoginStateManager.isSubmitting = false;
-                setButtonsState(false);
-            }
+        const res = await fetch('/api/register', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({username, password, cardNumber, boundDeviceFingerprint: deviceFingerprint})
+        });
+        const data = await res.json();
+        if (data.code === 0) {
+            showMessage('注册成功', 'success');
+        } else {
+            showMessage(data.message, 'error');
         }
+    }
 
-        // 登录成功处理
-        function handleLoginSuccess(cardNumber, token) {
-            showMessage('登录成功！正在跳转...');
-            LoginStateManager.resetFailCount();
-            
-            // 保存登录状态和token
-            const loginState = {
-                cardNumber: cardNumber,
-                loginTime: Date.now(),
-                expiryTime: Date.now() + CONSTANTS.SESSION_TIMEOUT,
-                token: token
-            };
-            
-            sessionStorage.setItem('loginState', JSON.stringify(loginState));
-            
-            // 延迟跳转
-            setTimeout(() => {
-                window.location.href = 'welcome.html';
-            }, 1000);
+    async function unbind() {
+        clearMessage();
+        const {username, password, cardNumber} = getInput();
+        const res = await fetch('/api/unbind', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({username, password, cardNumber})
+        });
+        const data = await res.json();
+        if (data.code === 0) {
+            showMessage('解绑成功', 'success');
+        } else {
+            showMessage(data.message, 'error');
         }
+    }
 
-        // 登录错误处理
-        function handleLoginError(error) {
-            const failCount = LoginStateManager.incrementFailCount();
-            const remainingAttempts = CONSTANTS.MAX_FAIL_COUNT - failCount;
-            
-            let errorMessage = error.message;
-            if (remainingAttempts > 0) {
-                errorMessage += `\n还剩 ${remainingAttempts} 次尝试机会`;
-            }
-            
-            showMessage(errorMessage, true);
-            
-            if (failCount >= CONSTANTS.MAX_FAIL_COUNT) {
-                startLockCountdown();
-            }
+    async function query() {
+        clearMessage();
+        const cardNumber = document.getElementById('cardNumber').value.trim();
+        if (!/^[0-9]{6,12}$/.test(cardNumber)) {
+            showMessage('卡号必须是6-12位数字', 'error');
+            return;
         }
-
-        // 锁定倒计时显示
-        function startLockCountdown() {
-            function updateCountdown() {
-                if (LoginStateManager.isLocked()) {
-                    const remainingSeconds = LoginStateManager.getRemainingLockTime();
-                    if (remainingSeconds > 0) {
-                        const minutes = Math.floor(remainingSeconds / 60);
-                        const seconds = remainingSeconds % 60;
-                        showMessage(`账号已被锁定，还剩 ${minutes}分${seconds}秒`, true);
-                        setTimeout(updateCountdown, 1000);
-                    } else {
-                        LoginStateManager.resetFailCount();
-                        showMessage('锁定已解除，可以重新登录', false);
-                    }
-                }
-            }
-            updateCountdown();
+        const token = localStorage.getItem('token') || '';
+        const res = await fetch('/api/query/' + cardNumber, {
+            method: 'GET',
+            headers: {'Authorization': 'Bearer ' + token}
+        });
+        const data = await res.json();
+        if (data.code === 0) {
+            showMessage('查询成功：' + JSON.stringify(data.data), 'success');
+        } else {
+            showMessage(data.message, 'error');
         }
-
-        // 页面加载完成后的初始化
-        window.onload = function() {
-            // 检查是否存在有效的登录会话
-            const loginState = JSON.parse(sessionStorage.getItem('loginState') || '{}');
-            if (loginState.expiryTime && Date.now() < loginState.expiryTime) {
-                window.location.href = 'welcome.html';
-                return;
-            }
-            
-            // 检查是否处于锁定状态
-            if (LoginStateManager.isLocked()) {
-                startLockCountdown();
-            }
-            
-            // 添加输入验证
-            const cardInput = document.getElementById('cardNumber');
-            cardInput.addEventListener('input', function(e) {
-                // 只允许输入数字
-                e.target.value = e.target.value.replace(/[^\d]/g, '');
-            });
-        };
-
-        // 解绑功能
-        async function unbind() {
-            if (LoginStateManager.isSubmitting) {
-                return;
-            }
-
-            const cardNumber = document.getElementById('cardNumber').value.trim();
-            if (!cardNumber) {
-                showMessage('请输入要解绑的卡号', true);
-                return;
-            }
-
-            if (!LoginValidator.validateCardNumber(cardNumber)) {
-                showMessage('卡号格式不正确，请输入18-19位数字', true);
-                return;
-            }
-
-            try {
-                LoginStateManager.isSubmitting = true;
-                setButtonsState(true);
-
-                const loginState = JSON.parse(sessionStorage.getItem('loginState') || '{}');
-                const token = loginState.token || '';
-
-                const response = await fetch('/api/unbind', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-Requested-With': 'XMLHttpRequest',
-                        'Authorization': 'Bearer ' + token
-                    },
-                    body: JSON.stringify({ 
-                        cardNumber: cardNumber,
-                        timestamp: Date.now()
-                    })
-                });
-
-                if (!response.ok) {
-                    throw new Error('网络请求失败');
-                }
-
-                const data = await response.json();
-                if (!data.success) {
-                    throw new Error(data.message || '解绑失败');
-                }
-                showMessage('解绑成功');
-            } catch (error) {
-                showMessage(error.message, true);
-            } finally {
-                LoginStateManager.isSubmitting = false;
-                setButtonsState(false);
-            }
-        }
-
-        // 查询功能
-        async function query() {
-            if (LoginStateManager.isSubmitting) {
-                return;
-            }
-
-            const cardNumber = document.getElementById('cardNumber').value.trim();
-            if (!cardNumber) {
-                showMessage('请输入要查询的卡号', true);
-                return;
-            }
-
-            if (!LoginValidator.validateCardNumber(cardNumber)) {
-                showMessage('卡号格式不正确，请输入18-19位数字', true);
-                return;
-            }
-
-            try {
-                LoginStateManager.isSubmitting = true;
-                setButtonsState(true);
-
-                const loginState = JSON.parse(sessionStorage.getItem('loginState') || '{}');
-                const token = loginState.token || '';
-
-                const response = await fetch(`/api/query/${encodeURIComponent(cardNumber)}`, {
-                    headers: {
-                        'X-Requested-With': 'XMLHttpRequest',
-                        'Authorization': 'Bearer ' + token
-                    }
-                });
-
-                if (!response.ok) {
-                    throw new Error('网络请求失败');
-                }
-
-                const data = await response.json();
-                if (data.success) {
-                    const cardInfo = data.data;
-                    const bindStatus = cardInfo.bound ? '已绑定' : '未绑定';
-                    const expiryDate = new Date(cardInfo.expiryDate).toLocaleString();
-                    showMessage(`卡号：${cardInfo.cardNumber}\n有效期至：${expiryDate}\n绑定状态：${bindStatus}`);
-                } else {
-                    throw new Error(data.message || '查询失败');
-                }
-            } catch (error) {
-                showMessage(error.message, true);
-            } finally {
-                LoginStateManager.isSubmitting = false;
-                setButtonsState(false);
-            }
-        }
-    </script>
+    }
+</script>
 </body>
 </html> 

@@ -3,15 +3,21 @@ package com.cardlogin.model;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
-
+import javax.persistence.*;
 import java.time.LocalDateTime;
 import java.io.Serializable;
 
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
+@Entity
+@Table(name = "card_info")
 public class CardInfo implements Serializable {
     private static final long serialVersionUID = 1L;
+    
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
     
     /** 卡号 */
     private String cardNumber;
