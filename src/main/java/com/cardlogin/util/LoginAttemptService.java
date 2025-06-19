@@ -1,62 +1,102 @@
 package com.cardlogin.util;
 
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.stereotype.Service;
 
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
+
+import com.google.common.cache.CacheBuilder;
+import com.google.common.cache.CacheLoader;
+import com.google.common.cache.LoadingCache;
+
+import javax.annotation.PostConstruct;
+import java.util.concurrent.ExecutionException;
 
 @Service
 public class LoginAttemptService {
+
+    private static final int MAX_ATTEMPT = 5;
+    private static final int LOCK_TIME_MINUTES = 30;
     
-    private static final String LOGIN_ATTEMPT_KEY = "login:attempt:";
-    private static final String LOGIN_LOCK_KEY = "login:lock:";
-    private static final int MAX_ATTEMPTS = 5;
-    private static final long LOCK_DURATION_MINUTES = 5;
-
-    @Autowired
-    private RedisTemplate<String, Object> redisTemplate;
-
-    public void loginSucceeded(String cardNumber) {
-        String attemptKey = LOGIN_ATTEMPT_KEY + cardNumber;
-        String lockKey = LOGIN_LOCK_KEY + cardNumber;
-        redisTemplate.delete(attemptKey);
-        redisTemplate.delete(lockKey);
+    private LoadingCache<String, Integer> attemptsCache;
+    private Map<String, Long> lockTimeMap = new ConcurrentHashMap<>();
+    
+    @PostConstruct
+    public void init() {
+        attemptsCache = CacheBuilder.newBuilder()
+                .expireAfterWrite(LOCK_TIME_MINUTES, TimeUnit.MINUTES)
+                .build(new CacheLoader<String, Integer>() {
+                    @Override
+                    public Integer load(String key) {
+                        return 0;
+                    }
+                });
     }
-
-    public void loginFailed(String cardNumber) {
-        String attemptKey = LOGIN_ATTEMPT_KEY + cardNumber;
-        String lockKey = LOGIN_LOCK_KEY + cardNumber;
-
-        // 增加失败次数
-        long attempts = redisTemplate.opsForValue().increment(attemptKey, 1);
+    
+    /**
+     * 记录登录失败
+     */
+    public void loginFailed(String key) {
+        int attempts;
+        try {
+            attempts = attemptsCache.get(key);
+            attempts++;
+            attemptsCache.put(key, attempts);
+            
+            if (attempts >= MAX_ATTEMPT) {
+                lockAccount(key);
+            }
+        } catch (ExecutionException e) {
+            attempts = 0;
+        }
+    }
+    
+    /**
+     * 锁定账号
+     */
+    private void lockAccount(String key) {
+        lockTimeMap.put(key, System.currentTimeMillis() + (LOCK_TIME_MINUTES * 60 * 1000));
+    }
+    
+    /**
+     * 检查账号是否被锁定
+     */
+    public boolean isLocked(String key) {
+        Long lockTime = lockTimeMap.get(key);
+        return lockTime != null && System.currentTimeMillis() < lockTime;
+    }
+    
+    /**
+     * 获取账号剩余锁定时间（分钟）
+     */
+    public long getRemainingLockTime(String key) {
+        Long lockTime = lockTimeMap.get(key);
+        if (lockTime == null) {
+            return 0;
+        }
         
-        // 设置失败次数的过期时间
-        if (attempts == 1) {
-            redisTemplate.expire(attemptKey, 1, TimeUnit.HOURS);
+        long remainingTimeMs = lockTime - System.currentTimeMillis();
+        return remainingTimeMs > 0 ? remainingTimeMs / (60 * 1000) + 1 : 0;
+    }
+    
+    /**
+     * 登录成功后重置尝试次数
+     */
+    public void loginSucceeded(String key) {
+        attemptsCache.invalidate(key);
+        lockTimeMap.remove(key);
+    }
+    
+    /**
+     * 获取剩余尝试次数
+     */
+    public int getRemainingAttempts(String key) {
+        try {
+            int attempts = attemptsCache.get(key);
+            return Math.max(MAX_ATTEMPT - attempts, 0);
+        } catch (ExecutionException e) {
+            return MAX_ATTEMPT;
         }
-
-        // 如果达到最大失败次数，设置锁定
-        if (attempts >= MAX_ATTEMPTS) {
-            redisTemplate.opsForValue().set(lockKey, true);
-            redisTemplate.expire(lockKey, LOCK_DURATION_MINUTES, TimeUnit.MINUTES);
-        }
-    }
-
-    public boolean isLocked(String cardNumber) {
-        String lockKey = LOGIN_LOCK_KEY + cardNumber;
-        return Boolean.TRUE.equals(redisTemplate.hasKey(lockKey));
-    }
-
-    public long getRemainingLockTime(String cardNumber) {
-        String lockKey = LOGIN_LOCK_KEY + cardNumber;
-        Long expire = redisTemplate.getExpire(lockKey, TimeUnit.MINUTES);
-        return expire != null ? expire : 0;
-    }
-
-    public long getFailedAttempts(String cardNumber) {
-        String attemptKey = LOGIN_ATTEMPT_KEY + cardNumber;
-        Object attempts = redisTemplate.opsForValue().get(attemptKey);
-        return attempts != null ? Long.parseLong(attempts.toString()) : 0;
     }
 } 

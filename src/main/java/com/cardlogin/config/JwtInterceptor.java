@@ -20,16 +20,23 @@ public class JwtInterceptor implements HandlerInterceptor {
             response.getWriter().write("未登录或token缺失");
             return false;
         }
+        
         String token = authHeader.substring(7);
         try {
-            Claims claims = JwtUtil.parseToken(token);
-            if (JwtUtil.isTokenExpired(token)) {
+            // 提取用户名和卡号
+            String username = JwtUtil.extractUsername(token);
+            String cardNumber = JwtUtil.extractCardNumber(token);
+            
+            // 验证token是否过期
+            if (JwtUtil.extractExpiration(token).before(new java.util.Date())) {
                 response.setStatus(HttpStatus.UNAUTHORIZED.value());
                 response.getWriter().write("token已过期");
                 return false;
             }
-            // 可将claims信息存入request attribute供后续使用
-            request.setAttribute("claims", claims);
+            
+            // 将信息存入request attribute供后续使用
+            request.setAttribute("username", username);
+            request.setAttribute("cardNumber", cardNumber);
             return true;
         } catch (ExpiredJwtException e) {
             response.setStatus(HttpStatus.UNAUTHORIZED.value());
@@ -37,7 +44,7 @@ public class JwtInterceptor implements HandlerInterceptor {
             return false;
         } catch (Exception e) {
             response.setStatus(HttpStatus.UNAUTHORIZED.value());
-            response.getWriter().write("token无效");
+            response.getWriter().write("token无效: " + e.getMessage());
             return false;
         }
     }
