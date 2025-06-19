@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.cardlogin.mapper.CardInfoMapper">
+    <resultMap id="CardInfoResultMap" type="com.cardlogin.model.CardInfo">
+        <id property="id" column="id"/>
+        <result property="cardNumber" column="card_number"/>
+        <result property="expiryDate" column="expiry_date"/>
+        <result property="bound" column="bound"/>
+        <result property="boundDeviceFingerprint" column="bound_device_fingerprint"/>
+        <result property="lastLoginTime" column="last_login_time"/>
+        <result property="loginAttempts" column="login_attempts"/>
+        <result property="username" column="username"/>
+        <result property="password" column="password"/>
+    </resultMap>
+
+    <select id="selectByCardNumber" resultMap="CardInfoResultMap">
+        SELECT * FROM card_info WHERE card_number = #{cardNumber}
+    </select>
+
+    <select id="selectAll" resultMap="CardInfoResultMap">
+        SELECT * FROM card_info
+    </select>
+
+    <insert id="insert" parameterType="com.cardlogin.model.CardInfo">
+        INSERT INTO card_info(card_number, expiry_date, bound, bound_device_fingerprint, last_login_time, login_attempts, username, password)
+        VALUES(#{cardNumber}, #{expiryDate}, #{bound}, #{boundDeviceFingerprint}, #{lastLoginTime}, #{loginAttempts}, #{username}, #{password})
+    </insert>
+
+    <update id="update" parameterType="com.cardlogin.model.CardInfo">
+        UPDATE card_info
+        SET expiry_date=#{expiryDate}, bound=#{bound}, bound_device_fingerprint=#{boundDeviceFingerprint},
+            last_login_time=#{lastLoginTime}, login_attempts=#{loginAttempts}, username=#{username}, password=#{password}
+        WHERE card_number=#{cardNumber}
+    </update>
+
+    <delete id="deleteByCardNumber" parameterType="string">
+        DELETE FROM card_info WHERE card_number = #{cardNumber}
+    </delete>
+</mapper> 
