@@ -3,11 +3,13 @@ package com.cardlogin.service.impl;
 import com.cardlogin.model.ApiResponse;
 import com.cardlogin.model.CardInfo;
 import com.cardlogin.model.LoginRequest;
+import com.cardlogin.repository.CardInfoRepository;
 import com.cardlogin.service.LoginService;
 import com.cardlogin.util.LoginAttemptService;
 import com.cardlogin.util.JwtUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.redis.core.RedisTemplate;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -21,11 +23,16 @@ public class LoginServiceImpl implements LoginService {
     private static final int MAX_FAILED_ATTEMPTS = 5;
     private static final long LOCK_DURATION_MINUTES = 5;
 
-    @Autowired
+    @Autowired(required = false)
     private RedisTemplate<String, Object> redisTemplate;
 
     @Autowired
+    private CardInfoRepository cardInfoRepository;
+
+    @Autowired
     private LoginAttemptService loginAttemptService;
+
+    private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
 
     @Override
     public ApiResponse login(LoginRequest loginRequest, String deviceFingerprint) {
@@ -61,7 +68,7 @@ public class LoginServiceImpl implements LoginService {
         // 校验用户名和密码
         if (username == null || password == null ||
             !username.equals(cardInfo.getUsername()) ||
-            !password.equals(cardInfo.getPassword())) {
+            !passwordEncoder.matches(password, cardInfo.getPassword())) {
             loginAttemptService.loginFailed(cardNumber);
             return ApiResponse.error("用户名或密码错误");
         }
@@ -123,13 +130,30 @@ public class LoginServiceImpl implements LoginService {
 
     // 获取卡片信息
     private CardInfo getCardInfo(String cardNumber) {
-        String key = CARD_INFO_KEY + cardNumber;
-        return (CardInfo) redisTemplate.opsForValue().get(key);
+        if (redisTemplate != null) {
+            try {
+                String key = CARD_INFO_KEY + cardNumber;
+                return (CardInfo) redisTemplate.opsForValue().get(key);
+            } catch (Exception e) {
+                // Redis 不可用时，直接从数据库查询
+                System.out.println("Redis 不可用，从数据库查询: " + e.getMessage());
+            }
+        }
+        // 从数据库查询
+        return cardInfoRepository.findByCardNumber(cardNumber);
     }
 
     // 保存卡片信息
     private void saveCardInfo(CardInfo cardInfo) {
-        String key = CARD_INFO_KEY + cardInfo.getCardNumber();
-        redisTemplate.opsForValue().set(key, cardInfo);
+        if (redisTemplate != null) {
+            try {
+                String key = CARD_INFO_KEY + cardInfo.getCardNumber();
+                redisTemplate.opsForValue().set(key, cardInfo);
+            } catch (Exception e) {
+                System.out.println("保存到 Redis 失败: " + e.getMessage());
+            }
+        }
+        // 总是保存到数据库
+        cardInfoRepository.save(cardInfo);
     }
 } 

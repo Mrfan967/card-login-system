@@ -73,7 +73,7 @@
         <input type="password" id="password" placeholder="密码" maxlength="32">
     </div>
     <div class="input-group">
-        <input type="text" id="cardNumber" placeholder="卡号（6-12位数字）" maxlength="12">
+        <input type="text" id="cardNumber" placeholder="卡号（6-19位数字）" maxlength="19">
     </div>
     <div class="button-group">
         <button id="loginBtn" onclick="login()">登录</button>
@@ -114,8 +114,8 @@
     async function login() {
         clearMessage();
         const {username, password, cardNumber, deviceFingerprint} = getInput();
-        if (!/^[0-9]{6,12}$/.test(cardNumber)) {
-            showMessage('卡号必须是6-12位数字', 'error');
+        if (!/^[0-9]{6,19}$/.test(cardNumber)) {
+            showMessage('卡号必须是6-19位数字', 'error');
             return;
         }
         const res = await fetch('/api/login', {
@@ -138,8 +138,8 @@
     async function register() {
         clearMessage();
         const {username, password, cardNumber, deviceFingerprint} = getInput();
-        if (!/^[0-9]{6,12}$/.test(cardNumber)) {
-            showMessage('卡号必须是6-12位数字', 'error');
+        if (!/^[0-9]{6,19}$/.test(cardNumber)) {
+            showMessage('卡号必须是6-19位数字', 'error');
             return;
         }
         const res = await fetch('/api/register', {
@@ -174,8 +174,8 @@
     async function query() {
         clearMessage();
         const cardNumber = document.getElementById('cardNumber').value.trim();
-        if (!/^[0-9]{6,12}$/.test(cardNumber)) {
-            showMessage('卡号必须是6-12位数字', 'error');
+        if (!/^[0-9]{6,19}$/.test(cardNumber)) {
+            showMessage('卡号必须是6-19位数字', 'error');
             return;
         }
         const token = localStorage.getItem('token') || '';

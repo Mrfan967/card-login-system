@@ -18,6 +18,9 @@ com\cardlogin\repository\CardInfoRepository.class
 com\cardlogin\CardLoginSystemApplication.class
 com\cardlogin\util\LoginAttemptService$1.class
 com\cardlogin\mapper\CardInfoMapper.class
+com\cardlogin\controller\TestController.class
 com\cardlogin\model\LoginRequest.class
+com\cardlogin\config\SecurityConfig.class
+com\cardlogin\util\RateLimiter$1.class
 com\cardlogin\util\LoginAttemptService.class
 com\cardlogin\model\ApiResponse.class

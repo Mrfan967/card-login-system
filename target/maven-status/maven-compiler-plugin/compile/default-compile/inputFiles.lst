@@ -3,11 +3,13 @@ C:\javatest\card-login-system\src\main\java\com\cardlogin\util\RateLimiter.java
 C:\javatest\card-login-system\src\main\java\com\cardlogin\util\JwtUtil.java
 C:\javatest\card-login-system\src\main\java\com\cardlogin\model\ApiResponse.java
 C:\javatest\card-login-system\src\main\java\com\cardlogin\model\RegisterRequest.java
+C:\javatest\card-login-system\src\main\java\com\cardlogin\controller\TestController.java
 C:\javatest\card-login-system\src\main\java\com\cardlogin\repository\CardInfoRepository.java
 C:\javatest\card-login-system\src\main\java\com\cardlogin\config\RedisConfig.java
 C:\javatest\card-login-system\src\main\java\com\cardlogin\util\LoginAttemptService.java
 C:\javatest\card-login-system\src\main\java\com\cardlogin\controller\LoginController.java
 C:\javatest\card-login-system\src\main\java\com\cardlogin\service\impl\LoginServiceImpl.java
+C:\javatest\card-login-system\src\main\java\com\cardlogin\config\SecurityConfig.java
 C:\javatest\card-login-system\src\main\java\com\cardlogin\config\WebConfig.java
 C:\javatest\card-login-system\src\main\java\com\cardlogin\service\RegisterService.java
 C:\javatest\card-login-system\src\main\java\com\cardlogin\model\CardInfoDTO.java

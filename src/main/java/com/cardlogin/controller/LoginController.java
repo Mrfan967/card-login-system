@@ -25,12 +25,20 @@ public class LoginController {
     @PostMapping("/login")
     public ResponseEntity<ApiResponse> login(
             @Valid @RequestBody LoginRequest loginRequest,
-            @RequestHeader("X-Device-Fingerprint") String deviceFingerprint,
+            @RequestHeader(value = "X-Device-Fingerprint", required = false) String deviceFingerprint,
             HttpServletRequest request) {
         
+        // 如果没有设备指纹，使用默认值
+        if (deviceFingerprint == null || deviceFingerprint.trim().isEmpty()) {
+            deviceFingerprint = loginRequest.getDeviceFingerprint();
+            if (deviceFingerprint == null) {
+                deviceFingerprint = "default-device-" + request.getRemoteAddr();
+            }
+        }
+
         // 检查请求频率限制
         String clientIp = request.getRemoteAddr();
-        if (!rateLimiter.tryAcquire(clientIp)) {
+        if (rateLimiter != null && !rateLimiter.tryAcquire(clientIp)) {
             return ResponseEntity
                     .status(HttpStatus.TOO_MANY_REQUESTS)
                     .body(ApiResponse.error("请求过于频繁，请稍后再试"));

@@ -7,7 +7,7 @@ import java.time.LocalDateTime;
 public class LoginRequest {
     
     @NotBlank(message = "卡号不能为空")
-    @Pattern(regexp = "^\\d{18,19}$", message = "卡号必须是18-19位数字")
+    @Pattern(regexp = "^\\d{6,19}$", message = "卡号必须是6-19位数字")
     private String cardNumber;
     
     private String deviceFingerprint;

@@ -13,7 +13,7 @@ import java.time.LocalDateTime;
 @Component
 public class DataInitRunner implements CommandLineRunner {
 
-    @Autowired
+    @Autowired(required = false)
     private RedisTemplate<String, Object> redisTemplate;
     
     @Autowired
@@ -28,7 +28,7 @@ public class DataInitRunner implements CommandLineRunner {
         for (int i = 1; i <= 10; i++) {
             String cardNumber = String.format("18084511856197632%01d", i); // 19位卡号
             String username = "user" + i;
-            String password = "pass" + i;
+            String password = "password123";
             
             CardInfo card = new CardInfo();
             card.setCardNumber(cardNumber);
@@ -48,12 +48,14 @@ public class DataInitRunner implements CommandLineRunner {
                 System.out.println("保存卡 " + cardNumber + " 到MySQL失败: " + e.getMessage());
             }
             
-            // 保存到Redis
-            try {
-                redisTemplate.opsForValue().set("card:info:" + cardNumber, card);
-                System.out.println("已将卡 " + cardNumber + " 保存到Redis");
-            } catch (Exception e) {
-                System.out.println("保存卡 " + cardNumber + " 到Redis失败: " + e.getMessage());
+            // 保存到Redis（如果可用）
+            if (redisTemplate != null) {
+                try {
+                    redisTemplate.opsForValue().set("card:info:" + cardNumber, card);
+                    System.out.println("已将卡 " + cardNumber + " 保存到Redis");
+                } catch (Exception e) {
+                    System.out.println("保存卡 " + cardNumber + " 到Redis失败: " + e.getMessage());
+                }
             }
         }
         

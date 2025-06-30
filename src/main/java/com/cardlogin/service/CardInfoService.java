@@ -14,7 +14,7 @@ public class CardInfoService {
     @Autowired
     private CardInfoMapper cardInfoMapper;
     
-    @Autowired
+    @Autowired(required = false)
     private RedisTemplate<String, Object> redisTemplate;
 
     private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
@@ -29,8 +29,12 @@ public class CardInfoService {
         boolean result = cardInfoMapper.insert(cardInfo) > 0;
         
         // 同步保存到Redis
-        if (result) {
-            redisTemplate.opsForValue().set(CARD_INFO_KEY + cardInfo.getCardNumber(), cardInfo);
+        if (result && redisTemplate != null) {
+            try {
+                redisTemplate.opsForValue().set(CARD_INFO_KEY + cardInfo.getCardNumber(), cardInfo);
+            } catch (Exception e) {
+                System.out.println("保存到 Redis 失败: " + e.getMessage());
+            }
         }
         
         return result;
@@ -61,31 +65,47 @@ public class CardInfoService {
     
     // 根据卡号查询卡信息
     public CardInfo getByCardNumber(String cardNumber) {
-        // 先从Redis中查询
-        CardInfo card = (CardInfo) redisTemplate.opsForValue().get(CARD_INFO_KEY + cardNumber);
-        
+        CardInfo card = null;
+
+        // 先从Redis中查询（如果可用）
+        if (redisTemplate != null) {
+            try {
+                card = (CardInfo) redisTemplate.opsForValue().get(CARD_INFO_KEY + cardNumber);
+            } catch (Exception e) {
+                System.out.println("从 Redis 查询失败: " + e.getMessage());
+            }
+        }
+
         // 如果Redis中没有，则从数据库查询
         if (card == null) {
             card = cardInfoMapper.selectByCardNumber(cardNumber);
-            
-            // 如果数据库中存在，则同步到Redis
-            if (card != null) {
-                redisTemplate.opsForValue().set(CARD_INFO_KEY + cardNumber, card);
+
+            // 如果数据库中存在，则同步到Redis（如果可用）
+            if (card != null && redisTemplate != null) {
+                try {
+                    redisTemplate.opsForValue().set(CARD_INFO_KEY + cardNumber, card);
+                } catch (Exception e) {
+                    System.out.println("同步到 Redis 失败: " + e.getMessage());
+                }
             }
         }
-        
+
         return card;
     }
     
     // 更新卡信息
     public boolean update(CardInfo cardInfo) {
         boolean result = cardInfoMapper.update(cardInfo) > 0;
-        
-        // 同步更新Redis
-        if (result) {
-            redisTemplate.opsForValue().set(CARD_INFO_KEY + cardInfo.getCardNumber(), cardInfo);
+
+        // 同步更新Redis（如果可用）
+        if (result && redisTemplate != null) {
+            try {
+                redisTemplate.opsForValue().set(CARD_INFO_KEY + cardInfo.getCardNumber(), cardInfo);
+            } catch (Exception e) {
+                System.out.println("更新 Redis 失败: " + e.getMessage());
+            }
         }
-        
+
         return result;
     }
     
